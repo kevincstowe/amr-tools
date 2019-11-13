@@ -1,7 +1,4 @@
 # amr_tools
-Python packages for quickly editing AMR graphs.
-
-
 Developing easy interfaces for parsing AMR strings into graph-based classes. This will allow for quick and simple editing of AMR graphs at scale.
 
 This project is designed to offer support for generation based on AMR graphs, particular the work of Ribiero et al (2019):
