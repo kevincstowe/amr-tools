@@ -1,28 +1,6 @@
+import os
+
 TAB_CHAR = "      "
-
-default_input = "/home/stowe/Resources/amrs/abstract_meaning_representation_amr_2.0/data/alignments/split/training/amr-release-2.0-alignments-training-bolt.txt"
-
-
-def test_train_dev(input_file=default_input):
-    graphs, strings = graphs_from_file(input_file)
-    edge_types = set()
-
-    with open("/home/stowe/Resources/amrs/NewAmrs/test/training.txt", "w") as output_file:        
-        for i in range(0, 1000):
-            graph = graphs[i]
- 
-            s1 = strings[i].strip()
-            s2 = string_from_graph(graph).strip()
-            output_file.write(s2+"\n\n")
-
-    with open("/home/stowe/Resources/amrs/NewAmrs/test/dev.txt", "w") as output_file:        
-        for i in range(1000, len(graphs)):
-            graph = graphs[i]
-            
-            s1 = strings[i].strip()
-            s2 = string_from_graph(graph).strip()
-            output_file.write(s2 + "\n\n")
-
 
 '''
 Load all the graphs in a particular AMR text file into graph objects
@@ -88,20 +66,26 @@ def graph_from_string(parse_string):
                 elif line_data[i+1].strip(")") in nodes or ("~" in line_data[i+1] and line_data[i+1].split("~")[0] in nodes):
                     cur_edge = Edge(cur_node.node_id, line_data[i+1].strip(")"), item, new_node=False)
                     edges.append(cur_edge)                
-                else:
-                    cur_node.attributes[item] = line_data[i+1].strip(")")
+                elif line_data[i+1][0] == '"':
+                    quote_count = line_data[i+1].count('"')
+                    word = line_data[i+1].rstrip(")")
+                    j = 1
+                    while quote_count < 2:
+                        word += " " + line_data[i+1+j].rstrip(")")
+                        quote_count += line_data[i+1+j].count('"')
+                        j += 1
+                    cur_node.attributes[item] = word
             i += 1
             while (item.endswith(")")):
                 item = item[:-1]
                 node_stack.pop()
                 if len(node_stack) > 0:
                     cur_node = node_stack[-1]
+                    
     return Graph(nodes, edges)
 
 def string_from_graph(graph):
-    res = ["# ::id " + graph.file_id + " ::amr-annotator fililer ::preferred",
-           "# ::tok " + " ".join(graph.tok),
-           "# ::alignments " + " ".join(graph.alignments)]
+    res = []
     
     def print_node(node, parent, graph):
         edge = ""
@@ -149,6 +133,10 @@ def string_from_graph(graph):
 
     print_children(graph.root, None, graph)
     tab_out(res)
+
+    res.insert(0, "# ::alignments " + " ".join(graph.alignments))
+    res.insert(0, "# ::tok " + " ".join(graph.tok))
+    res.insert(0, "# ::id " + graph.file_id + " ::amr-annotator fililer ::preferred")
     
     return "\n".join(res).strip()
 
