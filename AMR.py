@@ -1,8 +1,33 @@
-orig_file = "all_tagged_sentences.txt"
-amr_file = "amrs"
-
 TAB_CHAR = "      "
 
+default_input = "/home/stowe/Resources/amrs/abstract_meaning_representation_amr_2.0/data/alignments/split/training/amr-release-2.0-alignments-training-bolt.txt"
+
+
+def test_train_dev(input_file=default_input):
+    graphs, strings = graphs_from_file(input_file)
+    edge_types = set()
+
+    with open("/home/stowe/Resources/amrs/NewAmrs/test/training.txt", "w") as output_file:        
+        for i in range(0, 1000):
+            graph = graphs[i]
+ 
+            s1 = strings[i].strip()
+            s2 = string_from_graph(graph).strip()
+            output_file.write(s2+"\n\n")
+
+    with open("/home/stowe/Resources/amrs/NewAmrs/test/dev.txt", "w") as output_file:        
+        for i in range(1000, len(graphs)):
+            graph = graphs[i]
+            
+            s1 = strings[i].strip()
+            s2 = string_from_graph(graph).strip()
+            output_file.write(s2 + "\n\n")
+
+
+'''
+Load all the graphs in a particular AMR text file into graph objects
+Returns the graph list, along with original strings for comparison. Indexes are aligned
+'''
 def graphs_from_file(input_file):
     graphs, strings = [], []
     cur_gr_str = ""
@@ -11,17 +36,24 @@ def graphs_from_file(input_file):
         if not line.split():
             if (cur_gr_str):
                 graph = graph_from_string(cur_gr_str)
+                graph.file_id = file_id
+                graph.tok = tokens
+                graph.alignments = alignments
                 graphs.append(graph)
                 strings.append(cur_gr_str)
-                s = string_from_graph(graph)
             cur_gr_str = ""
             c += 1
-            if c > 5:
-                break
             
         elif line[0] != "#":
             cur_gr_str += line
-        
+        else:
+            if "::id" in line:
+                file_id = line.split()[2]
+            if "::tok" in line:
+                tokens = line.split()[2:]
+            if "::alignments" in line:
+                alignments = line.split()[2:]
+                
     return graphs, strings
 
 def graph_from_string(parse_string):
@@ -30,7 +62,6 @@ def graph_from_string(parse_string):
     edges = []
     cur_node = None
     cur_edge = None
-
     
     for line in parse_string.split("\n"):
         if not line.strip():
@@ -68,7 +99,9 @@ def graph_from_string(parse_string):
     return Graph(nodes, edges)
 
 def string_from_graph(graph):
-    res = []
+    res = ["# ::id " + graph.file_id + " ::amr-annotator fililer ::preferred",
+           "# ::tok " + " ".join(graph.tok),
+           "# ::alignments " + " ".join(graph.alignments)]
     
     def print_node(node, parent, graph):
         edge = ""
@@ -79,6 +112,8 @@ def string_from_graph(graph):
                     edge = graph.edges[i].value
                     
         res.append(str(edge + " (" + node.node_id + " / " + node.attributes["name"] + " " + " ".join([k + " " + v for k,v in node.attributes.items() if k != "name"])))
+
+    def print_extra_edges(node, parent, graph):
         if parent:
             for edge in [e for e in graph.edges if e.new_node == False and e.parent_id == node.node_id]:
                 res.append(edge.value + " " + edge.child_id)
@@ -88,6 +123,8 @@ def string_from_graph(graph):
         print_node(node, parent, graph)
         while children:
             print_children(graph.node_dict[children.pop(0)], node, graph)
+        print_extra_edges(node, parent, graph)
+            
         res.append(")")
         
     def tab_out(res):
@@ -115,6 +152,7 @@ def string_from_graph(graph):
     
     return "\n".join(res).strip()
 
+
 class Graph(object):
     def __init__(self, nodes, edges):
         self.edges = edges
@@ -123,12 +161,14 @@ class Graph(object):
         for node in nodes.values():
             if len(node.parent_ids) == 0:
                 self.root = node
+        self.file_id = None
+        self.tok = None
+        self.alignments = None
         
     def __str__(self):
-        return "Nodes: " + str(self.node_dict) + "\nEdges: " + str(self.edges)
-
+        return "File ID: " + self.file_id + "\nTokens: " + str(self.tok) + "\nAlignments: " + str(self.alignments) + "\nNodes: " + str(self.node_dict) + "\nEdges: " + str(self.edges)
+        
 class Node(object):
-    # head should be edge/node pairing, values are attributes on the node
     def __init__(self, node_id, parent_ids=[], attributes={}, children_ids=[]):
         self.node_id = node_id
         self.parent_ids = parent_ids
